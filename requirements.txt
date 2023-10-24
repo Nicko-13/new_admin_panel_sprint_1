@@ -26,7 +26,8 @@ flake8-variables-names==0.0.5
 # testing
 pytest==7.4.2
 coverage==7.3.2
-Faker=19.11.0
+Faker==19.11.0
 
 # database management
+psycopg2==2.9.9
 psycopg2-binary==2.9
