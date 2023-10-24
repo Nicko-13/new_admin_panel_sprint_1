@@ -2,7 +2,7 @@
 pre-commit==3.5.0
 
 # code formatters and linters
-flake8==5.0.4
+flake8==6.1.0
 flake8-blind-except==0.2.1
 flake8-broken-line==0.6.0
 flake8-bugbear==22.9.23
@@ -31,3 +31,6 @@ Faker==19.11.0
 # database management
 psycopg2==2.9.9
 psycopg2-binary==2.9
+
+# Django packages
+django==4.2.5
