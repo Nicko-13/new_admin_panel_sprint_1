@@ -21,8 +21,8 @@ class UUIDMixin(models.Model):
 
 
 class Genre(UUIDMixin, TimeStampedMixin):
-    name = models.CharField('name', max_length=255)
-    description = models.TextField('description', blank=True)
+    name = models.CharField('название', max_length=255)
+    description = models.TextField('описание', blank=True)
 
     class Meta:
         db_table = "content\".\"genre"
@@ -34,7 +34,7 @@ class Genre(UUIDMixin, TimeStampedMixin):
 
 
 class Person(UUIDMixin, TimeStampedMixin):
-    full_name = models.TextField('full_name', blank=False)
+    full_name = models.TextField('полное имя', blank=False)
 
     class Meta:
         db_table = "content\".\"person"
@@ -47,13 +47,14 @@ class Person(UUIDMixin, TimeStampedMixin):
 
 class Filmwork(UUIDMixin, TimeStampedMixin):
     class FilmworkTypes(models.TextChoices):
-        MOVIE = 'MV', _('Фильм')
-        TV_SHOW = 'TS', _('Телепередача')
+        MOVIE = 'movie', _('Фильм')
+        TV_SHOW = 'tv_show', _('Телепередача')
 
-    title = models.TextField('title', blank=False)
-    description = models.TextField('description', blank=True)
-    rating = models.FloatField('rating', blank=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
-    type = models.CharField('type', choices=FilmworkTypes.choices, default=FilmworkTypes.MOVIE)
+    title = models.TextField('название', blank=False)
+    description = models.TextField('описание', blank=True)
+    creation_date = models.DateField('дата создания фильма', blank=True)
+    rating = models.FloatField('рейтинг', blank=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    type = models.CharField('тип', choices=FilmworkTypes.choices, default=FilmworkTypes.MOVIE)
     genres = models.ManyToManyField(Genre, through='GenreFilmwork')
     persons = models.ManyToManyField(Person, through='PersonFilmwork')
 
@@ -80,7 +81,7 @@ class GenreFilmwork(UUIDMixin):
 class PersonFilmwork(UUIDMixin):
     film_work = models.ForeignKey('Filmwork', on_delete=models.CASCADE)
     person = models.ForeignKey('Person', on_delete=models.CASCADE)
-    role = models.TextField('role', null=True)
+    role = models.TextField('роль', null=True)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
