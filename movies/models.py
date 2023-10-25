@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class Genre(models.Model):
@@ -21,3 +22,28 @@ class Genre(models.Model):
         # Следующие два поля отвечают за название модели в интерфейсе
         verbose_name = 'Жанр'
         verbose_name_plural = 'Жанры'
+
+    def __str__(self):
+        return self.name
+
+
+class Filmwork(models.Model):
+    class FilmworkTypes(models.TextChoices):
+        MOVIE = 'MV', _('Фильм')
+        TV_SHOW = 'TS', _('Телепередача')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4(), editable=False)
+    title = models.TextField('title', blank=False)
+    description = models.TextField('description', blank=True)
+    rating = models.DecimalField('rating', blank=True, decimal_places=1, max_digits=3)
+    type = models.CharField('type', choices=FilmworkTypes.choices, default=FilmworkTypes.MOVIE)
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "content\".\"film_work"
+        verbose_name = 'Кинопроизведение'
+        verbose_name_plural = 'Кинопроизведения'
+
+    def __str__(self):
+        return self.title
