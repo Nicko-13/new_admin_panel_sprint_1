@@ -1,25 +1,31 @@
 import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
-class Genre(models.Model):
-    # Типичная модель в Django использует число в качестве id. В таких ситуациях поле не описывается в модели.
-    # Вам же придётся явно объявить primary key.
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # Первым аргументом обычно идёт человекочитаемое название поля
-    name = models.CharField('name', max_length=255)
-    # blank=True делает поле необязательным для заполнения.
-    description = models.TextField('description', blank=True)
-    # auto_now_add автоматически выставит дату создания записи 
+class TimeStampedMixin(models.Model):
     created = models.DateTimeField(auto_now_add=True)
-    # auto_now изменятся при каждом обновлении записи 
     modified = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # Ваши таблицы находятся в нестандартной схеме. Это нужно указать в классе модели
+        # Этот параметр указывает Django, что этот класс не является представлением таблицы
+        abstract = True
+
+
+class UUIDMixin(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class Genre(UUIDMixin, TimeStampedMixin):
+    name = models.CharField('name', max_length=255)
+    description = models.TextField('description', blank=True)
+
+    class Meta:
         db_table = "content\".\"genre"
-        # Следующие два поля отвечают за название модели в интерфейсе
         verbose_name = 'Жанр'
         verbose_name_plural = 'Жанры'
 
@@ -27,18 +33,15 @@ class Genre(models.Model):
         return self.name
 
 
-class Filmwork(models.Model):
+class Filmwork(UUIDMixin, TimeStampedMixin):
     class FilmworkTypes(models.TextChoices):
         MOVIE = 'MV', _('Фильм')
         TV_SHOW = 'TS', _('Телепередача')
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4(), editable=False)
     title = models.TextField('title', blank=False)
     description = models.TextField('description', blank=True)
-    rating = models.DecimalField('rating', blank=True, decimal_places=1, max_digits=3)
+    rating = models.FloatField('rating', blank=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
     type = models.CharField('type', choices=FilmworkTypes.choices, default=FilmworkTypes.MOVIE)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "content\".\"film_work"
