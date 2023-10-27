@@ -44,6 +44,12 @@ class Person(UUIDMixin, TimeStampedMixin):
     def __str__(self):
         return self.full_name
 
+    def save(self, *args, **kwargs):
+        try:
+            Person.objects.get(full_name=self.full_name)
+        except Person.DoesNotExist:
+            super().save(*args, **kwargs)
+
 
 class Filmwork(UUIDMixin, TimeStampedMixin):
     class FilmworkTypes(models.TextChoices):
