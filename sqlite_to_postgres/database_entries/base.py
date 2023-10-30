@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from abc import ABC, abstractmethod
 
 
@@ -10,20 +10,20 @@ class BaseEntry(ABC):
     Абстрактный базовый класс для одной записи в базе данных.
     """
     id: uuid.UUID = field(default_factory=uuid.uuid4)
-    # Пустые значения для этих полей будут обрабатываться на уровне базы данных
     created: datetime = field(default=None)
-    modified: datetime = field(default=None)
 
+    @staticmethod
     @abstractmethod
-    def get_fetch_query(self) -> str:
-        """
-        Возвращает базу SQL запроса для извлечения данных.
-        """
+    def get_table_name():
         pass
 
-    @abstractmethod
-    def get_insert_query(self) -> str:
+    @classmethod
+    def get_column_names(cls) -> str:
         """
-        Возвращает базу SQL запроса для вставки данных.
+        Возвращает название колонок в том порядке, в котором они должны быть в базе данных цель.
         """
-        pass
+        return ', '.join(field_.name for field_ in fields(cls))
+
+    @classmethod
+    def get_column_count(cls) -> str:
+        return ', '.join('%s' for _ in range(len(fields(cls))))

@@ -1,9 +1,11 @@
 import sqlite3
-import io
 import psycopg2
 import os
 from contextlib import contextmanager
 from dotenv import load_dotenv
+from dataclasses import astuple
+from database_entries.base import BaseEntry
+from database_entries.film_work_entry import FilmWorkEntry
 
 load_dotenv()
 
@@ -18,35 +20,44 @@ class DataMigration:
 
     """
     SOURCE_PATH = os.environ.get('SOURCE_PATH')
+    DNS = {
+        'dbname': os.environ.get('TARGET_NAME'),
+        'user': os.environ.get('TARGET_USER'),
+        'password': os.environ.get('TARGET_PASSWORD'),
+        'host': os.environ.get('TARGET_HOST'),
+        'port': 5432,
+        'options': '-c search_path=content',
+    }
 
-    def __init__(self) -> None:
+    def __init__(self, table: BaseEntry) -> None:
         """
         Конструктор.
         """
-        pass
+        self.table = table
+        self.table_name = table.get_table_name()
+        self.column_names = table.get_column_names()
+        self.column_count = table.get_column_count()
 
     def get_data(self):
         """
         Собирает данные из базы данных источник.
         """
         with DataMigration.get_connection() as conn:
-            # Получаем курсор
             curs = conn.cursor()
-            # Формируем запрос. Внутри execute находится обычный SQL-запрос
-            curs.execute("SELECT * FROM film_work;")
-            # Получаем данные
-            data = curs.fetchall()
-            print(dict(data[0]))
+            column_names = self.column_names.replace('created', 'created_at')
+
+            fetch_query = f'SELECT {column_names} FROM {self.table_name};'
+            curs.execute(fetch_query)
+            while True:
+                rows = curs.fetchmany(10)
+                if not rows: break
+                yield rows
 
     @classmethod
     @contextmanager
     def get_connection(cls):
-        # Устанавливаем соединение с БД
         conn = sqlite3.connect(cls.SOURCE_PATH)
-
-        # По-умолчанию SQLite возвращает строки в виде кортежа значений.
-        # Эта строка указывает, что данные должны быть в формате «ключ-значение»
-        conn.row_factory = sqlite3.Row
+        #conn.row_factory = sqlite3.Row
 
         yield conn
         conn.close()
@@ -55,34 +66,24 @@ class DataMigration:
         """
         Загружает данные в цель.
         """
-        dsn = {
-            'dbname': os.environ.get('TARGET_NAME'),
-            'user': os.environ.get('TARGET_USER'),
-            'password': os.environ.get('TARGET_PASSWORD'),
-            'host': os.environ.get('TARGET_HOST'),
-            'port': 5432,
-            'options': '-c search_path=content',
-        }
+        with psycopg2.connect(**self.DNS) as conn, conn.cursor() as cursor:
+            for data in self.get_data():
 
-        with psycopg2.connect(**dsn) as conn, conn.cursor() as cursor:
-            # Множественный insert
-            # Обращаем внимание на подготовку параметров для VALUES через cursor.mogrify
-            # Это позволяет без опаски передавать параметры на вставку
-            # mogrify позаботится об экранировании и подстановке нужных типов
-            # Именно поэтому можно склеить тело запроса с подготовленными параметрами
-            data = [
-                ('b8531efb-c49d-4111-803f-725c3abc0f5e', 'Василий Васильевич'),
-                ('2d5c50d0-0bb4-480c-beab-ded6d0760269', 'Пётр Петрович')
-            ]
-            args = ','.join(cursor.mogrify("(%s, %s)", item).decode() for item in data)
-            cursor.execute(f"""
-            INSERT INTO content.temp_table (id, name)
-            VALUES {args}
-            """)
+                args = ','.join(
+                    cursor.mogrify(
+                        f'({self.column_count}, NOW())',
+                        astuple(self.table(*item))
+                    ).decode('utf-8') for item in data
+                )
 
+                insert_query = f"""
+                INSERT INTO content.{self.table_name} ({self.column_names}, modified)
+                VALUES {args}
+                ON CONFLICT (id) DO NOTHING;;
+                """
+                cursor.execute(insert_query)
 
 
 if __name__ == '__main__':
-    test = DataMigration()
-    test.get_data()
+    test = DataMigration(FilmWorkEntry)
     test.load_data()
