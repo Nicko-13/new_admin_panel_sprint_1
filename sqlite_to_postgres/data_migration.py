@@ -10,6 +10,8 @@ from database_entries.genre_entry import GenreEntry
 from database_entries.person_entry import PersonEntry
 from database_entries.genre_film_work_entry import GenreFilmWorkEntry
 from database_entries.person_film_work_entry import PersonFilmWorkEntry
+from typing import Type, Generator
+from sqlite3.dbapi2 import Connection
 
 load_dotenv()
 
@@ -24,7 +26,7 @@ class DataMigration:
 
     """
     SOURCE_PATH = os.environ.get('SOURCE_PATH')
-    DNS = {
+    TARGET_DNS = {
         'dbname': os.environ.get('TARGET_NAME'),
         'user': os.environ.get('TARGET_USER'),
         'password': os.environ.get('TARGET_PASSWORD'),
@@ -32,51 +34,60 @@ class DataMigration:
         'port': 5432,
         'options': '-c search_path=content',
     }
+    BATCH_SIZE = 100
 
-    def __init__(self, table: BaseEntry) -> None:
+    def __init__(self, entry: Type[BaseEntry]) -> None:
         """
         Конструктор.
-        """
-        self.table = table
-        self.table_name = table.get_table_name()
-        self.column_names = table.get_column_names()
-        self.column_formatting_template = table.get_column_formatting_template()
 
-    def get_data(self):
+        :param entry: Дата-класс, который представляет единичную запись одной из таблиц базы данных.
         """
-        Собирает данные из базы данных источник.
+        self.entry = entry
+        self.table_name = entry.get_table_name()
+        self.column_names = entry.get_column_names()
+        self.column_formatting_template = entry.get_column_formatting_template()
+
+    def get_data(self) -> Generator[list[tuple[str]], None, None]:
+        """
+        Собирает данные из базы данных источник. Каждая запись представляет собой картеж.
+        Картежи содержатся в массиве.
+
+        :yield: массив записей из базы данных длинной self.BATCH_SIZE.
         """
         with DataMigration.get_connection() as conn:
             curs = conn.cursor()
+            # в базе данных источник и цель название поля различаются.
             column_names = self.column_names.replace('created', 'created_at')
-
-            fetch_query = f'SELECT {column_names} FROM {self.table_name};'
-            curs.execute(fetch_query)
+            curs.execute(f'SELECT {column_names} FROM {self.table_name};')
             while True:
-                rows = curs.fetchmany(10)
-                if not rows: break
+                rows = curs.fetchmany(self.BATCH_SIZE)
+                if not rows:
+                    break
                 yield rows
 
     @classmethod
     @contextmanager
-    def get_connection(cls):
-        conn = sqlite3.connect(cls.SOURCE_PATH)
-        #conn.row_factory = sqlite3.Row
+    def get_connection(cls) -> Generator[Connection, None, None]:
+        """
+        Устанавливает соединение с базой данных источник и передает его через генератор.
 
+        :yield: соединение с базой данных источник.
+        """
+        conn = sqlite3.connect(cls.SOURCE_PATH)
         yield conn
         conn.close()
 
-    def load_data(self):
+    def load_data(self) -> None:
         """
         Загружает данные в цель.
         """
-        with psycopg2.connect(**self.DNS) as conn, conn.cursor() as cursor:
+        with psycopg2.connect(**self.TARGET_DNS) as conn, conn.cursor() as cursor:
             for data in self.get_data():
 
                 args = ','.join(
                     cursor.mogrify(
                         f'({self.column_formatting_template}, NOW())',
-                        astuple(self.table(*item))
+                        astuple(self.entry(*item))
                     ).decode('utf-8') for item in data
                 )
 
@@ -89,5 +100,6 @@ class DataMigration:
 
 
 if __name__ == '__main__':
-    test = DataMigration(PersonFilmWorkEntry)
-    test.load_data()
+    for table in [FilmWorkEntry, PersonEntry, GenreEntry, PersonFilmWorkEntry, GenreFilmWorkEntry]:
+        migration = DataMigration(table)
+        migration.load_data()
