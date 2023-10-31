@@ -1,10 +1,8 @@
 import os
 import sqlite3
-from contextlib import contextmanager
 from dataclasses import astuple
-from datetime import datetime
-from sqlite3.dbapi2 import Connection
-from typing import Generator, Type
+from sqlite3.dbapi2 import Cursor
+from typing import Generator, Optional, Type, Union
 
 import psycopg2
 from database_entries.base import BaseEntry
@@ -14,6 +12,7 @@ from database_entries.genre_film_work_entry import GenreFilmWorkEntry
 from database_entries.person_entry import PersonEntry
 from database_entries.person_film_work_entry import PersonFilmWorkEntry
 from dotenv import load_dotenv
+from psycopg2.extras import NamedTupleCursor
 
 load_dotenv()
 
@@ -39,110 +38,88 @@ class DataMigration:
     }
     BATCH_SIZE = 100
 
-    def __init__(self, entry: Type[BaseEntry]) -> None:
+    def get_data(
+        self,
+        cursor: Union[Cursor, NamedTupleCursor],
+        entry: Type[BaseEntry],
+        database: Optional[str] = 'source',
+    ) -> Generator[list[tuple[str]], None, None]:
         """
-        Конструктор.
-
-        :param entry: Дата-класс, который представляет единичную запись одной из таблиц базы данных.
-        """
-        self.entry = entry
-        self.table_name = entry.get_table_name()
-        self.column_names = entry.get_column_names()
-        self.column_formatting_template = entry.get_column_formatting_template()
-
-    @classmethod
-    @contextmanager
-    def get_connection(cls) -> Generator[Connection, None, None]:
-        """
-        Устанавливает соединение с базой данных источник и передает его через генератор.
-
-        :yield: соединение с базой данных источник.
-        """
-        conn = sqlite3.connect(cls.SOURCE_PATH)
-        yield conn
-        conn.close()
-
-    def get_source_data(self) -> Generator[list[tuple[str]], None, None]:
-        """
-        Собирает данные из базы данных источник. Каждая запись представляет собой картеж.
+        Собирает данные из базы данных. Каждая запись представляет собой картеж.
         Картежи содержатся в массиве.
+
+        :param cursor: Курсор базы данных.
+        :param entry: Класс, представляющий одну запись в базе данных.
+        :param database: База данных, из которой извлекаются данные.
 
         :yield: массив записей из базы данных длинной self.BATCH_SIZE.
         """
-        with DataMigration.get_connection() as conn:
-            curs = conn.cursor()
+        column_names = entry.get_column_names()
+        if database == 'source':
             # в базе данных источник и цель название поля различаются.
-            column_names = self.column_names.replace('created', 'created_at')
-            curs.execute(f'SELECT {column_names} FROM {self.table_name};')
-            while True:
-                rows = curs.fetchmany(self.BATCH_SIZE)
-                if not rows:
-                    break
-                yield rows
+            column_names = column_names.replace('created', 'created_at')
+        table_name = entry.get_table_name()
 
-    def get_target_data(self) -> Generator[list[tuple[str]], None, None]:
+        cursor.execute(f'SELECT {column_names} FROM {table_name};')
+        while True:
+            rows = cursor.fetchmany(self.BATCH_SIZE)
+            if not rows:
+                break
+            yield rows
+
+    def load_data(
+        self,
+        batch: list[tuple[str]],
+        cursor: Union[Cursor, NamedTupleCursor],
+        entry: Type[BaseEntry],
+    ) -> None:
         """
-        Собирает данные из базы данных цель. Каждая запись представляет собой картеж.
-        Картежи содержатся в массиве.
+        Загружает данные в базу данных.
 
-        :yield: массив записей из базы данных длинной self.BATCH_SIZE.
+        :param batch: Массив записей для вставки в базу данных длинной.
+        :param cursor: Курсор базы данных.
+        :param entry: Класс, представляющий одну запись в базе данных.
         """
-        with psycopg2.connect(**self.TARGET_DNS) as conn, conn.cursor() as cursor:
-            cursor.execute(f'SELECT {self.column_names} FROM {self.table_name};')
-            while True:
-                rows = cursor.fetchmany(self.BATCH_SIZE)
-                if not rows:
-                    break
-                yield rows
+        table_name = entry.get_table_name()
+        column_names = entry.get_column_names()
+        column_formatting_template = entry.get_column_formatting_template()
 
-    def load_data(self) -> None:
+        args = ','.join(
+            cursor.mogrify(
+                f'({column_formatting_template}, NOW())',
+                astuple(entry(*item)),
+            ).decode('utf-8')
+            for item in batch
+        )
+
+        insert_query = f"""
+        INSERT INTO content.{table_name} ({column_names}, modified)
+        VALUES {args}
+        ON CONFLICT (id) DO NOTHING;;
         """
-        Загружает данные в цель.
+        cursor.execute(insert_query)
+
+    def migrate(self) -> None:
         """
-        with psycopg2.connect(**self.TARGET_DNS) as conn, conn.cursor() as cursor:
-            for data in self.get_source_data():
-                args = ','.join(
-                    cursor.mogrify(
-                        f'({self.column_formatting_template}, NOW())',
-                        astuple(self.entry(*item)),
-                    ).decode('utf-8')
-                    for item in data
-                )
-
-                insert_query = f"""
-                INSERT INTO content.{self.table_name} ({self.column_names}, modified)
-                VALUES {args}
-                ON CONFLICT (id) DO NOTHING;;
-                """
-                cursor.execute(insert_query)
-
-    def test_migration(self) -> None:
+        Получает данные из источника и вставляет их в цель.
         """
-        Проверяет, что количество записей в базе совпадает и что каждая запись совпадает между собой.
-        """
-        for source_data, target_data in zip(
-            self.get_source_data(),
-            self.get_target_data(),
-        ):
-            for i in range(len(source_data)):
-                for j in range(len(source_data[0])):
-                    source, target = source_data[i][j], target_data[i][j]
+        with sqlite3.connect(self.SOURCE_PATH) as source_conn, psycopg2.connect(
+            **self.TARGET_DNS
+        ) as target_conn:
+            source_cursor = source_conn.cursor()
+            target_cursor = target_conn.cursor()
 
-                    if isinstance(target, datetime):
-                        target = target.strftime('%Y-%m-%d %H:%M:%S.%f%z').split('.')[0]
-                        source = source.split('.')[0]
-
-                    assert source == target
+            for table in [
+                FilmWorkEntry,
+                PersonEntry,
+                GenreEntry,
+                PersonFilmWorkEntry,
+                GenreFilmWorkEntry,
+            ]:
+                for batch in self.get_data(source_cursor, table):
+                    self.load_data(batch, target_cursor, table)
 
 
 if __name__ == '__main__':
-    for table in [
-        FilmWorkEntry,
-        PersonEntry,
-        GenreEntry,
-        PersonFilmWorkEntry,
-        GenreFilmWorkEntry,
-    ]:
-        migration = DataMigration(table)
-        migration.load_data()
-        migration.test_migration()
+    migration = DataMigration()
+    migration.migrate()
