@@ -8,6 +8,7 @@ from database_entries.base import BaseEntry
 from database_entries.film_work_entry import FilmWorkEntry
 from database_entries.genre_entry import GenreEntry
 from database_entries.person_entry import PersonEntry
+from database_entries.genre_film_work_entry import GenreFilmWorkEntry
 
 load_dotenv()
 
@@ -87,5 +88,5 @@ class DataMigration:
 
 
 if __name__ == '__main__':
-    test = DataMigration(PersonEntry)
+    test = DataMigration(GenreFilmWorkEntry)
     test.load_data()
