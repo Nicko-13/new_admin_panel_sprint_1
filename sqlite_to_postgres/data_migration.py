@@ -12,6 +12,7 @@ from database_entries.genre_film_work_entry import GenreFilmWorkEntry
 from database_entries.person_film_work_entry import PersonFilmWorkEntry
 from typing import Type, Generator
 from sqlite3.dbapi2 import Connection
+from datetime import datetime
 
 load_dotenv()
 
@@ -47,7 +48,7 @@ class DataMigration:
         self.column_names = entry.get_column_names()
         self.column_formatting_template = entry.get_column_formatting_template()
 
-    def get_data(self) -> Generator[list[tuple[str]], None, None]:
+    def get_source_data(self) -> Generator[list[tuple[str]], None, None]:
         """
         Собирает данные из базы данных источник. Каждая запись представляет собой картеж.
         Картежи содержатся в массиве.
@@ -61,6 +62,21 @@ class DataMigration:
             curs.execute(f'SELECT {column_names} FROM {self.table_name};')
             while True:
                 rows = curs.fetchmany(self.BATCH_SIZE)
+                if not rows:
+                    break
+                yield rows
+
+    def get_target_data(self):
+        """
+        Собирает данные из базы данных источник. Каждая запись представляет собой картеж.
+        Картежи содержатся в массиве.
+
+        :yield: массив записей из базы данных длинной self.BATCH_SIZE.
+        """
+        with psycopg2.connect(**self.TARGET_DNS) as conn, conn.cursor() as cursor:
+            cursor.execute(f'SELECT {self.column_names} FROM {self.table_name};')
+            while True:
+                rows = cursor.fetchmany(self.BATCH_SIZE)
                 if not rows:
                     break
                 yield rows
@@ -82,7 +98,7 @@ class DataMigration:
         Загружает данные в цель.
         """
         with psycopg2.connect(**self.TARGET_DNS) as conn, conn.cursor() as cursor:
-            for data in self.get_data():
+            for data in self.get_source_data():
 
                 args = ','.join(
                     cursor.mogrify(
@@ -98,8 +114,24 @@ class DataMigration:
                 """
                 cursor.execute(insert_query)
 
+    def test_migration(self) -> None:
+        """
+        Проверяет, что количество записей в базе совпадает и что каждая запись совпадает между собой.
+        """
+        for source_data, target_data in zip(self.get_source_data(), self.get_target_data()):
+            for i in range(len(source_data)):
+                for j in range(len(source_data[0])):
+                    source, target = source_data[i][j], target_data[i][j]
+
+                    if isinstance(target, datetime):
+                        target = target.strftime('%Y-%m-%d %H:%M:%S.%f%z').split('.')[0]
+                        source = source.split('.')[0]
+
+                    assert source == target
+
 
 if __name__ == '__main__':
     for table in [FilmWorkEntry, PersonEntry, GenreEntry, PersonFilmWorkEntry, GenreFilmWorkEntry]:
         migration = DataMigration(table)
         migration.load_data()
+        migration.test_migration()
