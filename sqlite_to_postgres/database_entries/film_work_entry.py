@@ -1,6 +1,7 @@
-from .base import BaseEntry
 from dataclasses import dataclass, field
 from datetime import datetime
+
+from .base import BaseEntry
 
 
 @dataclass
@@ -8,6 +9,7 @@ class FilmWorkEntry(BaseEntry):
     """
     Содержит информацию об одной записи из таблицы film_work.
     """
+
     title: str = field(default='')
     description: str = field(default='')
     creation_date: datetime = field(default='')

@@ -1,7 +1,8 @@
 import uuid
+
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class TimeStampedMixin(models.Model):
@@ -25,7 +26,7 @@ class Genre(UUIDMixin, TimeStampedMixin):
     description = models.TextField(_('description'), blank=True)
 
     class Meta:
-        db_table = "content\".\"genre"
+        db_table = 'content\'.\'genre'
         verbose_name = _('Genre')
         verbose_name_plural = _('Genres')
 
@@ -37,7 +38,7 @@ class Person(UUIDMixin, TimeStampedMixin):
     full_name = models.TextField(_('full name'), blank=False)
 
     class Meta:
-        db_table = "content\".\"person"
+        db_table = 'content\'.\'person'
         verbose_name = _('film crew member')
         verbose_name_plural = _('film crew')
 
@@ -59,15 +60,23 @@ class Filmwork(UUIDMixin, TimeStampedMixin):
     title = models.TextField(_('title'), blank=False)
     description = models.TextField(_('description'), blank=True)
     creation_date = models.DateField(_('creation date'), blank=True)
-    rating = models.FloatField(_('rating'), blank=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
-    type = models.CharField(_('type'), choices=FilmworkTypes.choices, default=FilmworkTypes.MOVIE)
+    rating = models.FloatField(
+        _('rating'),
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    type = models.CharField(
+        _('type'),
+        choices=FilmworkTypes.choices,
+        default=FilmworkTypes.MOVIE,
+    )
 
     # Many-to-many fields declarations
     genres = models.ManyToManyField(Genre, through='GenreFilmwork')
     persons = models.ManyToManyField(Person, through='PersonFilmwork')
 
     class Meta:
-        db_table = "content\".\"film_work"
+        db_table = 'content\'.\'film_work'
         verbose_name = _('film work')
         verbose_name_plural = _('film works')
 
@@ -81,7 +90,7 @@ class GenreFilmwork(UUIDMixin):
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "content\".\"genre_film_work"
+        db_table = 'content\'.\'genre_film_work'
         verbose_name = _('film\'s genre')
         verbose_name_plural = _('film\'s genres')
 
@@ -93,6 +102,6 @@ class PersonFilmwork(UUIDMixin):
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "content\".\"person_film_work"
+        db_table = 'content\'.\'person_film_work'
         verbose_name = _('film crew member')
         verbose_name_plural = _('film crew')

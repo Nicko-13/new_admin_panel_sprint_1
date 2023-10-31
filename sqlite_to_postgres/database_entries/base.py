@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
-from dataclasses import dataclass, field, fields
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field, fields
+from datetime import datetime
 
 
 @dataclass
@@ -12,6 +12,7 @@ class BaseEntry(ABC):
     Так как этот класс содержит поля с дефолтными значениями, каждое поля подкласса также должно иметь дефолтное
     значение.
     """
+
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     created: datetime = field(default=None)
 

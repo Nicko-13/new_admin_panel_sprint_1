@@ -1,18 +1,19 @@
-import sqlite3
-import psycopg2
 import os
+import sqlite3
 from contextlib import contextmanager
-from dotenv import load_dotenv
 from dataclasses import astuple
+from datetime import datetime
+from sqlite3.dbapi2 import Connection
+from typing import Generator, Type
+
+import psycopg2
 from database_entries.base import BaseEntry
 from database_entries.film_work_entry import FilmWorkEntry
 from database_entries.genre_entry import GenreEntry
-from database_entries.person_entry import PersonEntry
 from database_entries.genre_film_work_entry import GenreFilmWorkEntry
+from database_entries.person_entry import PersonEntry
 from database_entries.person_film_work_entry import PersonFilmWorkEntry
-from typing import Type, Generator
-from sqlite3.dbapi2 import Connection
-from datetime import datetime
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -26,6 +27,7 @@ class DataMigration:
     Цель - база данных, в которую добавляются данные. В коде будет обозначена как target.
 
     """
+
     SOURCE_PATH = os.environ.get('SOURCE_PATH')
     TARGET_DNS = {
         'dbname': os.environ.get('TARGET_NAME'),
@@ -48,6 +50,18 @@ class DataMigration:
         self.column_names = entry.get_column_names()
         self.column_formatting_template = entry.get_column_formatting_template()
 
+    @classmethod
+    @contextmanager
+    def get_connection(cls) -> Generator[Connection, None, None]:
+        """
+        Устанавливает соединение с базой данных источник и передает его через генератор.
+
+        :yield: соединение с базой данных источник.
+        """
+        conn = sqlite3.connect(cls.SOURCE_PATH)
+        yield conn
+        conn.close()
+
     def get_source_data(self) -> Generator[list[tuple[str]], None, None]:
         """
         Собирает данные из базы данных источник. Каждая запись представляет собой картеж.
@@ -66,9 +80,9 @@ class DataMigration:
                     break
                 yield rows
 
-    def get_target_data(self):
+    def get_target_data(self) -> Generator[list[tuple[str]], None, None]:
         """
-        Собирает данные из базы данных источник. Каждая запись представляет собой картеж.
+        Собирает данные из базы данных цель. Каждая запись представляет собой картеж.
         Картежи содержатся в массиве.
 
         :yield: массив записей из базы данных длинной self.BATCH_SIZE.
@@ -81,30 +95,18 @@ class DataMigration:
                     break
                 yield rows
 
-    @classmethod
-    @contextmanager
-    def get_connection(cls) -> Generator[Connection, None, None]:
-        """
-        Устанавливает соединение с базой данных источник и передает его через генератор.
-
-        :yield: соединение с базой данных источник.
-        """
-        conn = sqlite3.connect(cls.SOURCE_PATH)
-        yield conn
-        conn.close()
-
     def load_data(self) -> None:
         """
         Загружает данные в цель.
         """
         with psycopg2.connect(**self.TARGET_DNS) as conn, conn.cursor() as cursor:
             for data in self.get_source_data():
-
                 args = ','.join(
                     cursor.mogrify(
                         f'({self.column_formatting_template}, NOW())',
-                        astuple(self.entry(*item))
-                    ).decode('utf-8') for item in data
+                        astuple(self.entry(*item)),
+                    ).decode('utf-8')
+                    for item in data
                 )
 
                 insert_query = f"""
@@ -118,7 +120,10 @@ class DataMigration:
         """
         Проверяет, что количество записей в базе совпадает и что каждая запись совпадает между собой.
         """
-        for source_data, target_data in zip(self.get_source_data(), self.get_target_data()):
+        for source_data, target_data in zip(
+            self.get_source_data(),
+            self.get_target_data(),
+        ):
             for i in range(len(source_data)):
                 for j in range(len(source_data[0])):
                     source, target = source_data[i][j], target_data[i][j]
@@ -131,7 +136,13 @@ class DataMigration:
 
 
 if __name__ == '__main__':
-    for table in [FilmWorkEntry, PersonEntry, GenreEntry, PersonFilmWorkEntry, GenreFilmWorkEntry]:
+    for table in [
+        FilmWorkEntry,
+        PersonEntry,
+        GenreEntry,
+        PersonFilmWorkEntry,
+        GenreFilmWorkEntry,
+    ]:
         migration = DataMigration(table)
         migration.load_data()
         migration.test_migration()
