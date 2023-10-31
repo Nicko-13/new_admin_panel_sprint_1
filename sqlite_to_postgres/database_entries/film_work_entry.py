@@ -15,5 +15,5 @@ class FilmWorkEntry(BaseEntry):
     type: str = field(default='')
 
     @staticmethod
-    def get_table_name():
+    def get_table_name() -> str:
         return 'film_work'
