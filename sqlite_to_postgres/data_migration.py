@@ -5,14 +5,15 @@ from sqlite3.dbapi2 import Cursor
 from typing import Generator, Optional, Type, Union
 
 import psycopg2
-from database_entries.base import BaseEntry
-from database_entries.film_work_entry import FilmWorkEntry
-from database_entries.genre_entry import GenreEntry
-from database_entries.genre_film_work_entry import GenreFilmWorkEntry
-from database_entries.person_entry import PersonEntry
-from database_entries.person_film_work_entry import PersonFilmWorkEntry
 from dotenv import load_dotenv
 from psycopg2.extras import NamedTupleCursor
+
+from sqlite_to_postgres.database_entries.base import BaseEntry
+from sqlite_to_postgres.database_entries.film_work_entry import FilmWorkEntry
+from sqlite_to_postgres.database_entries.genre_entry import GenreEntry
+from sqlite_to_postgres.database_entries.genre_film_work_entry import GenreFilmWorkEntry
+from sqlite_to_postgres.database_entries.person_entry import PersonEntry
+from sqlite_to_postgres.database_entries.person_film_work_entry import PersonFilmWorkEntry
 
 load_dotenv()
 
@@ -41,7 +42,7 @@ class DataMigration:
     def get_data(
         self,
         cursor: Union[Cursor, NamedTupleCursor],
-        entry: Type[BaseEntry],
+        entry_class: Type[BaseEntry],
         database: Optional[str] = 'source',
     ) -> Generator[list[tuple[str]], None, None]:
         """
@@ -49,16 +50,16 @@ class DataMigration:
         Картежи содержатся в массиве.
 
         :param cursor: Курсор базы данных.
-        :param entry: Класс, представляющий одну запись в базе данных.
+        :param entry_class: Класс, представляющий одну запись в базе данных.
         :param database: База данных, из которой извлекаются данные.
 
         :yield: массив записей из базы данных длинной self.BATCH_SIZE.
         """
-        column_names = entry.get_column_names()
+        column_names = entry_class.get_column_names()
         if database == 'source':
             # в базе данных источник и цель название поля различаются.
             column_names = column_names.replace('created', 'created_at')
-        table_name = entry.get_table_name()
+        table_name = entry_class.get_table_name()
 
         cursor.execute(f'SELECT {column_names} FROM {table_name};')
         while True:
@@ -71,23 +72,23 @@ class DataMigration:
         self,
         batch: list[tuple[str]],
         cursor: Union[Cursor, NamedTupleCursor],
-        entry: Type[BaseEntry],
+        entry_class: Type[BaseEntry],
     ) -> None:
         """
         Загружает данные в базу данных.
 
         :param batch: Массив записей для вставки в базу данных длинной.
         :param cursor: Курсор базы данных.
-        :param entry: Класс, представляющий одну запись в базе данных.
+        :param entry_class: Класс, представляющий одну запись в базе данных.
         """
-        table_name = entry.get_table_name()
-        column_names = entry.get_column_names()
-        column_formatting_template = entry.get_column_formatting_template()
+        table_name = entry_class.get_table_name()
+        column_names = entry_class.get_column_names()
+        column_formatting_template = entry_class.get_column_formatting_template()
 
         args = ','.join(
             cursor.mogrify(
                 f'({column_formatting_template}, NOW())',
-                astuple(entry(*item)),
+                astuple(entry_class(*item)),
             ).decode('utf-8')
             for item in batch
         )
@@ -103,23 +104,16 @@ class DataMigration:
         """
         Получает данные из источника и вставляет их в цель.
         """
-        with sqlite3.connect(self.SOURCE_PATH) as source_conn, psycopg2.connect(
-            **self.TARGET_DNS
-        ) as target_conn:
+        with sqlite3.connect(self.SOURCE_PATH) as source_conn, psycopg2.connect(**self.TARGET_DNS) as target_conn:
             source_cursor = source_conn.cursor()
             target_cursor = target_conn.cursor()
 
-            for table in [
+            for entry_class in [
                 FilmWorkEntry,
                 PersonEntry,
                 GenreEntry,
                 PersonFilmWorkEntry,
                 GenreFilmWorkEntry,
             ]:
-                for batch in self.get_data(source_cursor, table):
-                    self.load_data(batch, target_cursor, table)
-
-
-if __name__ == '__main__':
-    migration = DataMigration()
-    migration.migrate()
+                for batch in self.get_data(source_cursor, entry_class):
+                    self.load_data(batch, target_cursor, entry_class)

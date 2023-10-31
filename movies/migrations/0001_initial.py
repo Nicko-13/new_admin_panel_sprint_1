@@ -131,9 +131,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "person",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="movies.person"
-                    ),
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="movies.person"),
                 ),
             ],
             options={
@@ -164,9 +162,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "genre",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="movies.genre"
-                    ),
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="movies.genre"),
                 ),
             ],
             options={
@@ -178,15 +174,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="filmwork",
             name="genres",
-            field=models.ManyToManyField(
-                through="movies.GenreFilmwork", to="movies.genre"
-            ),
+            field=models.ManyToManyField(through="movies.GenreFilmwork", to="movies.genre"),
         ),
         migrations.AddField(
             model_name="filmwork",
             name="persons",
-            field=models.ManyToManyField(
-                through="movies.PersonFilmwork", to="movies.person"
-            ),
+            field=models.ManyToManyField(through="movies.PersonFilmwork", to="movies.person"),
         ),
     ]

@@ -5,7 +5,7 @@ repos:
     -   id: black
         name: black
         description: "Black: The uncompromising Python code formatter"
-        entry: black --skip-string-normalization
+        entry: black --skip-string-normalization --line-length 120
         language: python
         minimum_pre_commit_version: 2.9.2
         require_serial: true
