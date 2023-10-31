@@ -8,22 +8,31 @@ from abc import ABC, abstractmethod
 class BaseEntry(ABC):
     """
     Абстрактный базовый класс для одной записи в базе данных.
+
+    Так как этот класс содержит поля с дефолтными значениями, каждое поля подкласса также должно иметь дефолтное
+    значение.
     """
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     created: datetime = field(default=None)
 
     @staticmethod
     @abstractmethod
-    def get_table_name():
+    def get_table_name() -> str:
+        """
+        Возвращает название таблицы, к которой принадлежит запись.
+        """
         pass
 
     @classmethod
     def get_column_names(cls) -> str:
         """
-        Возвращает название колонок в том порядке, в котором они должны быть в базе данных цель.
+        Возвращает название колонок записи.
         """
         return ', '.join(field_.name for field_ in fields(cls))
 
     @classmethod
-    def get_column_count(cls) -> str:
+    def get_column_formatting_template(cls) -> str:
+        """
+        Возвращает темплейт для вставки названия колонок в SQL запрос.
+        """
         return ', '.join('%s' for _ in range(len(fields(cls))))
