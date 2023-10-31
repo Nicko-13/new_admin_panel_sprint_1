@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from dataclasses import astuple
 from database_entries.base import BaseEntry
 from database_entries.film_work_entry import FilmWorkEntry
+from database_entries.genre_entry import GenreEntry
+from database_entries.person_entry import PersonEntry
 
 load_dotenv()
 
@@ -36,7 +38,7 @@ class DataMigration:
         self.table = table
         self.table_name = table.get_table_name()
         self.column_names = table.get_column_names()
-        self.column_count = table.get_column_count()
+        self.column_formatting_template = table.get_column_formatting_template()
 
     def get_data(self):
         """
@@ -71,7 +73,7 @@ class DataMigration:
 
                 args = ','.join(
                     cursor.mogrify(
-                        f'({self.column_count}, NOW())',
+                        f'({self.column_formatting_template}, NOW())',
                         astuple(self.table(*item))
                     ).decode('utf-8') for item in data
                 )
@@ -85,5 +87,5 @@ class DataMigration:
 
 
 if __name__ == '__main__':
-    test = DataMigration(FilmWorkEntry)
+    test = DataMigration(PersonEntry)
     test.load_data()
