@@ -23,7 +23,7 @@ class UUIDMixin(models.Model):
 
 class Genre(UUIDMixin, TimeStampedMixin):
     name = models.CharField(_('name'), max_length=255)
-    description = models.TextField(_('description'), blank=True)
+    description = models.TextField(_('description'), blank=True, unique=True)
 
     class Meta:
         db_table = 'content\'.\'genre'
@@ -80,30 +80,32 @@ class Filmwork(UUIDMixin, TimeStampedMixin):
         verbose_name = _('film work')
         verbose_name_plural = _('film works')
 
-        indexes = [models.Index(fields=['creation_date'])]
+        indexes = [models.Index(fields=['creation_date'], name='film_work_creation_date_idx')]
 
     def __str__(self):
         return self.title
 
 
-class GenreFilmwork(UUIDMixin):
+class GenreFilmwork(UUIDMixin, TimeStampedMixin):
     film_work = models.ForeignKey('Filmwork', on_delete=models.CASCADE)
     genre = models.ForeignKey('Genre', on_delete=models.CASCADE)
-    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'content\'.\'genre_film_work'
         verbose_name = _('film\'s genre')
         verbose_name_plural = _('film\'s genres')
 
+        indexes = [models.Index(fields=['film_work', 'genre'], name='film_work_genre_idx')]
 
-class PersonFilmwork(UUIDMixin):
+
+class PersonFilmwork(UUIDMixin, TimeStampedMixin):
     film_work = models.ForeignKey('Filmwork', on_delete=models.CASCADE)
     person = models.ForeignKey('Person', on_delete=models.CASCADE)
     role = models.TextField(_('role'), null=True)
-    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'content\'.\'person_film_work'
         verbose_name = _('film crew member')
         verbose_name_plural = _('film crew')
+
+        indexes = [models.Index(fields=['film_work', 'person', 'role'], name='film_work_person_role_idx')]
