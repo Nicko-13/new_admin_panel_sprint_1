@@ -26,7 +26,7 @@ class Genre(UUIDMixin, TimeStampedMixin):
     description = models.TextField(_('description'), blank=True, unique=True)
 
     class Meta:
-        db_table = 'content\'.\'genre'
+        db_table = "content\".\"genre"
         verbose_name = _('Genre')
         verbose_name_plural = _('Genres')
 
@@ -38,7 +38,7 @@ class Person(UUIDMixin, TimeStampedMixin):
     full_name = models.TextField(_('full name'), blank=False)
 
     class Meta:
-        db_table = 'content\'.\'person'
+        db_table = "content\".\"person"
         verbose_name = _('film crew member')
         verbose_name_plural = _('film crew')
 
@@ -76,7 +76,7 @@ class Filmwork(UUIDMixin, TimeStampedMixin):
     persons = models.ManyToManyField(Person, through='PersonFilmwork')
 
     class Meta:
-        db_table = 'content\'.\'film_work'
+        db_table = "content\".\"film_work"
         verbose_name = _('film work')
         verbose_name_plural = _('film works')
 
@@ -91,7 +91,7 @@ class GenreFilmwork(UUIDMixin, TimeStampedMixin):
     genre = models.ForeignKey('Genre', on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'content\'.\'genre_film_work'
+        db_table = "content\".\"genre_film_work"
         verbose_name = _('film\'s genre')
         verbose_name_plural = _('film\'s genres')
 
@@ -104,7 +104,7 @@ class PersonFilmwork(UUIDMixin, TimeStampedMixin):
     role = models.TextField(_('role'), null=True)
 
     class Meta:
-        db_table = 'content\'.\'person_film_work'
+        db_table = "content\".\"person_film_work"
         verbose_name = _('film crew member')
         verbose_name_plural = _('film crew')
 
