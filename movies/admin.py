@@ -36,6 +36,10 @@ class FilmworkAdmin(admin.ModelAdmin):
     )
     search_fields = ('title', 'description', 'id')
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.prefetch_related('genres').prefetch_related('persons')
+
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
