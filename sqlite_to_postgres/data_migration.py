@@ -108,8 +108,9 @@ class DataMigration:
                 try:
                     for batch in self.get_data(source_cursor, entry_class):
                         self.load_data(batch, target_cursor, entry_class)
-                except Exception as e:
-                    logging.error(e)
+                except (sqlite3.Error, psycopg2.Erro) as err:
+                    logging.error(f'Failed to transfer data with error: {err}')
+                    raise err
 
         source_conn.close()
         target_conn.close()
