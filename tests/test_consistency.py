@@ -3,6 +3,7 @@ from datetime import datetime
 
 import psycopg2
 
+from sqlite_to_postgres.config import SOURCE_PATH, TARGET_DNS
 from sqlite_to_postgres.data_migration import DataMigration
 from sqlite_to_postgres.database_entries.film_work_entry import FilmWorkEntry
 from sqlite_to_postgres.database_entries.genre_entry import GenreEntry
@@ -17,9 +18,7 @@ def test_migration() -> None:
     """
     test_instance = DataMigration()
 
-    with sqlite3.connect(DataMigration.SOURCE_PATH) as source_conn, psycopg2.connect(
-        **DataMigration.TARGET_DNS
-    ) as target_conn:
+    with sqlite3.connect(SOURCE_PATH) as source_conn, psycopg2.connect(**TARGET_DNS) as target_conn:
         for entry_class in [
             FilmWorkEntry,
             PersonEntry,

@@ -1,5 +1,5 @@
-import os
 import sqlite3
+import logging
 from dataclasses import astuple
 from sqlite3.dbapi2 import Cursor
 from typing import Generator, Optional, Type, Union
@@ -8,14 +8,18 @@ import psycopg2
 from dotenv import load_dotenv
 from psycopg2.extras import NamedTupleCursor
 
-from sqlite_to_postgres.database_entries.base import BaseEntry
-from sqlite_to_postgres.database_entries.film_work_entry import FilmWorkEntry
-from sqlite_to_postgres.database_entries.genre_entry import GenreEntry
-from sqlite_to_postgres.database_entries.genre_film_work_entry import GenreFilmWorkEntry
-from sqlite_to_postgres.database_entries.person_entry import PersonEntry
-from sqlite_to_postgres.database_entries.person_film_work_entry import PersonFilmWorkEntry
+from sqlite_to_postgres.database_entries import (
+    BaseEntry,
+    FilmWorkEntry,
+    GenreEntry,
+    GenreFilmWorkEntry,
+    PersonEntry,
+    PersonFilmWorkEntry,
+)
+from sqlite_to_postgres import config
 
 load_dotenv()
+logging.basicConfig(format='%(asctime)s [%(levelname)s][Method:%(funcName)s]: %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 
 
 class DataMigration:
@@ -27,17 +31,6 @@ class DataMigration:
     Цель - база данных, в которую добавляются данные. В коде будет обозначена как target.
 
     """
-
-    SOURCE_PATH = os.environ.get('SOURCE_PATH')
-    TARGET_DNS = {
-        'dbname': os.environ.get('TARGET_NAME'),
-        'user': os.environ.get('TARGET_USER'),
-        'password': os.environ.get('TARGET_PASSWORD'),
-        'host': os.environ.get('TARGET_HOST'),
-        'port': 5432,
-        'options': '-c search_path=content',
-    }
-    BATCH_SIZE = 100
 
     def get_data(
         self,
@@ -62,10 +55,7 @@ class DataMigration:
         table_name = entry_class.get_table_name()
 
         cursor.execute(f'SELECT {column_names} FROM {table_name};')
-        while True:
-            rows = cursor.fetchmany(self.BATCH_SIZE)
-            if not rows:
-                break
+        while rows := cursor.fetchmany(config.BATCH_SIZE):
             yield rows
 
     def load_data(
@@ -104,7 +94,7 @@ class DataMigration:
         """
         Получает данные из источника и вставляет их в цель.
         """
-        with sqlite3.connect(self.SOURCE_PATH) as source_conn, psycopg2.connect(**self.TARGET_DNS) as target_conn:
+        with sqlite3.connect(config.SOURCE_PATH) as source_conn, psycopg2.connect(**config.TARGET_DNS) as target_conn:
             source_cursor = source_conn.cursor()
             target_cursor = target_conn.cursor()
 
@@ -115,5 +105,11 @@ class DataMigration:
                 PersonFilmWorkEntry,
                 GenreFilmWorkEntry,
             ]:
-                for batch in self.get_data(source_cursor, entry_class):
-                    self.load_data(batch, target_cursor, entry_class)
+                try:
+                    for batch in self.get_data(source_cursor, entry_class):
+                        self.load_data(batch, target_cursor, entry_class)
+                except Exception as e:
+                    logging.error(e)
+
+        source_conn.close()
+        target_conn.close()
