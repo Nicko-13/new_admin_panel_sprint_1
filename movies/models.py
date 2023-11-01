@@ -80,6 +80,8 @@ class Filmwork(UUIDMixin, TimeStampedMixin):
         verbose_name = _('film work')
         verbose_name_plural = _('film works')
 
+        indexes = [models.Index(fields=['creation_date'])]
+
     def __str__(self):
         return self.title
 
