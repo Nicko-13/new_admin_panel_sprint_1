@@ -95,7 +95,7 @@ class GenreFilmwork(UUIDMixin, TimeStampedMixin):
         verbose_name = _('film\'s genre')
         verbose_name_plural = _('film\'s genres')
 
-        indexes = [models.Index(fields=['film_work', 'genre'], name='film_work_genre_idx')]
+        constraints = [models.UniqueConstraint(fields=['film_work', 'genre'], name='film_work_genre_idx')]
 
 
 class PersonFilmwork(UUIDMixin, TimeStampedMixin):
@@ -108,4 +108,6 @@ class PersonFilmwork(UUIDMixin, TimeStampedMixin):
         verbose_name = _('film crew member')
         verbose_name_plural = _('film crew')
 
-        indexes = [models.Index(fields=['film_work', 'person', 'role'], name='film_work_person_role_idx')]
+        constraints = [
+            models.UniqueConstraint(fields=['film_work', 'person', 'role'], name='film_work_person_role_idx'),
+        ]
