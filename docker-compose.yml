@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  web:
+    build: ./source
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./source:/application
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+    env_file: source/config/.env
+  postgres:
+    image: postgres:13
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: 123qwe
+      POSTGRES_USER: app
+      POSTGRES_DB: movies_database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

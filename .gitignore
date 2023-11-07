@@ -133,9 +133,5 @@ dmypy.json
 # IDE
 .idea/
 
-# Docker files for local testing
-docker-compose.yml
-Dockerfile
-
 # Working fales
 fake_data.py
