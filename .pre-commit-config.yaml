@@ -1,11 +1,11 @@
 repos:
 -   repo: https://github.com/psf/black-pre-commit-mirror
-    rev: '23.10.0'
+    rev: '23.10.1'
     hooks:
     -   id: black
         name: black
         description: "Black: The uncompromising Python code formatter"
-        entry: black --skip-string-normalization --line-length 120
+        entry: black --skip-string-normalization
         language: python
         minimum_pre_commit_version: 2.9.2
         require_serial: true
@@ -18,3 +18,18 @@ repos:
         entry: flake8 --config=setup.cfg
         language: python
         types: [python]
+-   repo: https://github.com/hadolint/hadolint
+    rev: 'v2.12.1-beta'
+    hooks:
+    -   id: hadolint-docker
+        name: Lint Dockerfiles
+        description: Runs hadolint Docker image to lint Dockerfiles
+        language: docker_image
+        types: [ "dockerfile" ]
+        entry: ghcr.io/hadolint/hadolint hadolint
+    -   id: hadolint
+        name: Lint Dockerfiles
+        description: Runs hadolint to lint Dockerfiles
+        language: system
+        types: [ "dockerfile" ]
+        entry: hadolint
