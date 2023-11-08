@@ -1,26 +1,39 @@
 version: '3.8'
 
 services:
-  web:
-    build: ./source
-    command: uwsgi --ini uwsgi.ini
-    volumes:
-      - ./source:/application
-    ports:
-      - 8000:8000
-    depends_on:
-      - postgres
-    env_file: source/config/.env
   postgres:
     image: postgres:13
     ports:
-      - 5432:5432
+      - "5432:5432"
     environment:
       POSTGRES_PASSWORD: 123qwe
       POSTGRES_USER: app
       POSTGRES_DB: movies_database
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  web:
+    build: ./source
+    command: bash -c "python manage.py migrate
+                      && python manage.py collectstatic --no-input
+                      && uwsgi --ini uwsgi.ini"
+    volumes:
+      - static_volume:/application/staticfiles:ro
+    expose:
+      - "8000"
+    depends_on:
+      - postgres
+    env_file: source/config/.env
+  nginx:
+    image: nginx:1.19.2
+    volumes:
+      - ./source/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./source/nginx_configs:/etc/nginx/conf.d:ro
+      - static_volume:/application/staticfiles:ro
+    depends_on:
+      - web
+    ports:
+      - "80:80"
 
 volumes:
   postgres_data:
+  static_volume:
