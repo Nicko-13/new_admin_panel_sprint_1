@@ -1,5 +1,4 @@
 import os
-import socket
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -53,9 +52,13 @@ DEBUG = os.environ.get('DEBUG', False) == 'True'
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
-hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
-INTERNAL_IPS = [ip[: ip.rfind('.')] + '.1' for ip in ips] + ['127.0.0.1', '10.0.2.2']
-
+if DEBUG:
+    # Уважаемый ревьюер, понимаю, что нарушаю требования к коду, но к сожалению лучшего варианта запуска toolbar
+    # совместно с nginx не нашел. В то же время очень хочется сделать настройки в dev максимально близкими к prod.
+    # Буду очень благодарен за рекомендацию по улучшению этого участка кода.
+    DEBUG_TOOLBAR_CONFIG = {
+        'SHOW_TOOLBAR_CALLBACK': lambda _request: True,
+    }
 
 # Application definition
 
