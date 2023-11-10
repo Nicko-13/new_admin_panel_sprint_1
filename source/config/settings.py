@@ -51,6 +51,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = os.environ.get('DEBUG', False) == 'True'
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:8080',
+]
 
 if DEBUG:
     # Уважаемый ревьюер, понимаю, что нарушаю требования к коду, но к сожалению лучшего варианта запуска toolbar
@@ -71,6 +74,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # local apps
     'movies.apps.MoviesConfig',
+    # third party apps
+    'corsheaders',
     'debug_toolbar',
 ]
 
@@ -78,6 +83,7 @@ MIDDLEWARE = [
     'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
