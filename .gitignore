@@ -140,4 +140,4 @@ fake_data.py
 source/staticfiles
 
 # Docker files for local development
-docker-compose.dev.yml
+docker-compose.*.yml
