@@ -2,12 +2,13 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import OuterRef, Q, Subquery
 from django.db.models.query import QuerySet
 from django.http import JsonResponse
+from django.views.generic.base import View
 from django.views.generic.detail import BaseDetailView
 from django.views.generic.list import BaseListView
 from movies.models import Filmwork, PersonFilmwork
 
 
-class MoviesApiMixin:
+class MoviesApiMixin(View):
     model = Filmwork
     http_method_names = ['get']
 
@@ -15,9 +16,14 @@ class MoviesApiMixin:
         """
         Возвращает подготовленный Queryset в соответствии с запросом.
         """
+        if record_id := self.kwargs.get('pk', None):
+            query_set = self.model.objects.filter(id=record_id)
+        else:
+            query_set = self.model.objects
+
         return (
-            self.model.objects.prefetch_related('genres', 'persons')
-            .values()
+            query_set.values()
+            .prefetch_related('genres', 'persons')
             .annotate(
                 genres=self.get_genres_subquery(),
                 actors=self.get_persons_subquery(
@@ -44,7 +50,9 @@ class MoviesApiMixin:
         )
         return Subquery(genres.values('genres_'))
 
-    def get_persons_subquery(self, role) -> Subquery:
+    def get_persons_subquery(
+        self, role: PersonFilmwork.PersonFilmworkRoles
+    ) -> Subquery:
         """
         Возвращает объект класса Subquery c колонкой genres_.
         Каждая запись в колонке содержит жанры для фильма из таблицы Filmwork.
@@ -74,7 +82,7 @@ class MoviesListApi(MoviesApiMixin, BaseListView):
         return context
 
 
-class MoviesDetailApi(BaseDetailView):
+class MoviesDetailApi(MoviesApiMixin, BaseDetailView):
     def get_context_data(self, *, object_list=None, **kwargs):
         context = {
             'results': list(self.get_queryset()),
