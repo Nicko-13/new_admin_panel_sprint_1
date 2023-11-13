@@ -15,60 +15,52 @@ class MoviesApiMixin:
         """
         Возвращает подготовленный Queryset в соответствии с запросом.
         """
+        return (
+            self.model.objects.prefetch_related('genres', 'persons')
+            .values()
+            .annotate(
+                genres=self.get_genres_subquery(),
+                actors=self.get_persons_subquery(
+                    PersonFilmwork.PersonFilmworkRoles.ACTOR
+                ),
+                directors=self.get_persons_subquery(
+                    PersonFilmwork.PersonFilmworkRoles.DIRECTOR
+                ),
+                writers=self.get_persons_subquery(
+                    PersonFilmwork.PersonFilmworkRoles.WRITER
+                ),
+            )
+        )
+
+    def get_genres_subquery(self) -> Subquery:
+        """
+        Возвращает объект класса Subquery c колонкой genres_.
+        Каждая запись в колонке содержит жанры для фильма из таблицы Filmwork.
+        """
         genres = (
             self.model.objects.prefetch_related('genres')
             .annotate(genres_=ArrayAgg('genres__name'))
             .filter(pk=OuterRef('pk'))
         )
-        actors = (
+        return Subquery(genres.values('genres_'))
+
+    def get_persons_subquery(self, role) -> Subquery:
+        """
+        Возвращает объект класса Subquery c колонкой genres_.
+        Каждая запись в колонке содержит жанры для фильма из таблицы Filmwork.
+        """
+        persons = (
             self.model.objects.prefetch_related('persons')
             .annotate(
-                actors=ArrayAgg(
+                roles=ArrayAgg(
                     'persons__full_name',
-                    filter=Q(
-                        personfilmwork__role=PersonFilmwork.PersonFilmworkRoles.actor
-                    ),
+                    filter=Q(personfilmwork__role=role),
                 )
             )
             .filter(pk=OuterRef('pk'))
         )
 
-        directors = (
-            self.model.objects.prefetch_related('persons')
-            .annotate(
-                directors=ArrayAgg(
-                    'persons__full_name',
-                    filter=Q(
-                        personfilmwork__role=PersonFilmwork.PersonFilmworkRoles.director
-                    ),
-                )
-            )
-            .filter(pk=OuterRef('pk'))
-        )
-
-        writers = (
-            self.model.objects.prefetch_related('persons')
-            .annotate(
-                writers=ArrayAgg(
-                    'persons__full_name',
-                    filter=Q(
-                        personfilmwork__role=PersonFilmwork.PersonFilmworkRoles.writer
-                    ),
-                )
-            )
-            .filter(pk=OuterRef('pk'))
-        )
-
-        return (
-            self.model.objects.prefetch_related('genres', 'persons')
-            .values()
-            .annotate(
-                genres=Subquery(genres.values('genres_')),
-                actors=Subquery(actors.values('actors')),
-                directors=Subquery(directors.values('directors')),
-                writers=Subquery(writers.values('writers')),
-            )
-        )
+        return Subquery(persons.values('roles'))
 
     def render_to_response(self, context, **response_kwargs):
         return JsonResponse(context)

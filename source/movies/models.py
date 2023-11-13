@@ -106,9 +106,9 @@ class GenreFilmwork(UUIDMixin, TimeStampedMixin):
 
 class PersonFilmwork(UUIDMixin, TimeStampedMixin):
     class PersonFilmworkRoles(models.TextChoices):
-        actor = 'actor', _('actor')
-        director = 'director', _('director')
-        writer = 'writer', _('writer')
+        ACTOR = 'actor', _('actor')
+        DIRECTOR = 'director', _('director')
+        WRITER = 'writer', _('writer')
 
     film_work = models.ForeignKey('Filmwork', on_delete=models.CASCADE)
     person = models.ForeignKey('Person', on_delete=models.CASCADE)
