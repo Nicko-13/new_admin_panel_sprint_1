@@ -1,5 +1,6 @@
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.db.models.query import QuerySet
 from django.http import JsonResponse
 from django.views.generic.base import View
@@ -45,7 +46,7 @@ class MoviesApiMixin(View):
         """
         genres = (
             self.model.objects.prefetch_related('genres')
-            .annotate(genres_=ArrayAgg('genres__name'))
+            .annotate(genres_=Coalesce(ArrayAgg('genres__name'), []))
             .filter(pk=OuterRef('pk'))
         )
         return Subquery(genres.values('genres_'))
@@ -60,9 +61,12 @@ class MoviesApiMixin(View):
         persons = (
             self.model.objects.prefetch_related('persons')
             .annotate(
-                roles=ArrayAgg(
-                    'persons__full_name',
-                    filter=Q(personfilmwork__role=role),
+                roles=Coalesce(
+                    ArrayAgg(
+                        'persons__full_name',
+                        filter=Q(personfilmwork__role=role),
+                    ),
+                    [],
                 )
             )
             .filter(pk=OuterRef('pk'))
@@ -75,16 +79,22 @@ class MoviesApiMixin(View):
 
 
 class MoviesListApi(MoviesApiMixin, BaseListView):
+    paginate_by = 50
+
     def get_context_data(self, *, object_list=None, **kwargs):
-        context = {
-            'results': list(self.get_queryset()),
+        queryset = self.get_queryset()
+        paginator, page, queryset, is_paginated = self.paginate_queryset(
+            queryset, self.paginate_by
+        )
+        return {
+            'count': paginator.count,
+            'total_pages': paginator.num_pages,
+            'prev': page.previous_page_number() if page.has_previous() else None,
+            'next': page.next_page_number() if page.has_next() else None,
+            'results': list(queryset),
         }
-        return context
 
 
 class MoviesDetailApi(MoviesApiMixin, BaseDetailView):
     def get_context_data(self, *, object_list=None, **kwargs):
-        context = {
-            'results': list(self.get_queryset()),
-        }
-        return context
+        return self.get_queryset()[0]
