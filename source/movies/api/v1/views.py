@@ -1,5 +1,5 @@
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.db.models.query import QuerySet
 from django.http import JsonResponse
 from django.views.generic.detail import BaseDetailView
@@ -15,10 +15,23 @@ class MoviesApiMixin:
         """
         Возвращает подготовленный Queryset в соответствии с запросом.
         """
+        genres = (
+            self.model.objects.prefetch_related('genres')
+            .annotate(genres_=ArrayAgg('genres__name'))
+            .filter(pk=OuterRef('pk'))
+        )
+        actors = (
+            self.model.objects.prefetch_related('persons')
+            .annotate(actors=ArrayAgg('persons__full_name'))
+            .filter(pk=OuterRef('pk'))
+        )
         return (
             self.model.objects.prefetch_related('genres', 'persons')
             .values()
-            .annotate(genres=ArrayAgg('genres__name'))
+            .annotate(
+                genres=Subquery(genres.values('genres_')),
+                actors=Subquery(actors.values('actors')),
+            )
         )
 
     def render_to_response(self, context, **response_kwargs):
