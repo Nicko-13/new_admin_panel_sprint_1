@@ -15,7 +15,11 @@ class MoviesApiMixin:
         """
         Возвращает подготовленный Queryset в соответствии с запросом.
         """
-        return self.model.objects.all().values()
+        return (
+            self.model.objects.prefetch_related('genres', 'persons')
+            .values()
+            .annotate(genres=ArrayAgg('genres__name'))
+        )
 
     def render_to_response(self, context, **response_kwargs):
         return JsonResponse(context)
