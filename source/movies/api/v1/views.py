@@ -4,7 +4,7 @@ from django.db.models.query import QuerySet
 from django.http import JsonResponse
 from django.views.generic.detail import BaseDetailView
 from django.views.generic.list import BaseListView
-from movies.models import Filmwork
+from movies.models import Filmwork, PersonFilmwork
 
 
 class MoviesApiMixin:
@@ -22,15 +22,51 @@ class MoviesApiMixin:
         )
         actors = (
             self.model.objects.prefetch_related('persons')
-            .annotate(actors=ArrayAgg('persons__full_name'))
+            .annotate(
+                actors=ArrayAgg(
+                    'persons__full_name',
+                    filter=Q(
+                        personfilmwork__role=PersonFilmwork.PersonFilmworkRoles.actor
+                    ),
+                )
+            )
             .filter(pk=OuterRef('pk'))
         )
+
+        directors = (
+            self.model.objects.prefetch_related('persons')
+            .annotate(
+                directors=ArrayAgg(
+                    'persons__full_name',
+                    filter=Q(
+                        personfilmwork__role=PersonFilmwork.PersonFilmworkRoles.director
+                    ),
+                )
+            )
+            .filter(pk=OuterRef('pk'))
+        )
+
+        writers = (
+            self.model.objects.prefetch_related('persons')
+            .annotate(
+                writers=ArrayAgg(
+                    'persons__full_name',
+                    filter=Q(
+                        personfilmwork__role=PersonFilmwork.PersonFilmworkRoles.writer
+                    ),
+                )
+            )
+            .filter(pk=OuterRef('pk'))
+        )
+
         return (
             self.model.objects.prefetch_related('genres', 'persons')
             .values()
             .annotate(
                 genres=Subquery(genres.values('genres_')),
                 actors=Subquery(actors.values('actors')),
+                directors=Subquery(directors.values('directors')),
+                writers=Subquery(writers.values('writers')),
             )
         )
 
