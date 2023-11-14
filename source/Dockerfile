@@ -11,3 +11,6 @@ COPY requirements.txt /application
 
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . /application
+
+# make wait-for-postgres.sh executable
+RUN chmod +x wait-for-postgres.sh

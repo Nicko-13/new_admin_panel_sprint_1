@@ -22,21 +22,15 @@ class MoviesApiMixin(View):
         else:
             query_set = self.model.objects
 
-        return (
-            query_set.values()
-            .prefetch_related('genres', 'persons')
-            .annotate(
-                genres=self.get_genres_subquery(),
-                actors=self.get_persons_subquery(
-                    PersonFilmwork.PersonFilmworkRoles.ACTOR
-                ),
-                directors=self.get_persons_subquery(
-                    PersonFilmwork.PersonFilmworkRoles.DIRECTOR
-                ),
-                writers=self.get_persons_subquery(
-                    PersonFilmwork.PersonFilmworkRoles.WRITER
-                ),
-            )
+        return query_set.values().annotate(
+            genres=self.get_genres_subquery(),
+            actors=self.get_persons_subquery(PersonFilmwork.PersonFilmworkRoles.ACTOR),
+            directors=self.get_persons_subquery(
+                PersonFilmwork.PersonFilmworkRoles.DIRECTOR
+            ),
+            writers=self.get_persons_subquery(
+                PersonFilmwork.PersonFilmworkRoles.WRITER
+            ),
         )
 
     def get_genres_subquery(self) -> Subquery:
@@ -44,11 +38,9 @@ class MoviesApiMixin(View):
         Возвращает объект класса Subquery c колонкой genres_.
         Каждая запись в колонке содержит жанры для фильма из таблицы Filmwork.
         """
-        genres = (
-            self.model.objects.prefetch_related('genres')
-            .annotate(genres_=Coalesce(ArrayAgg('genres__name'), []))
-            .filter(pk=OuterRef('pk'))
-        )
+        genres = self.model.objects.annotate(
+            genres_=Coalesce(ArrayAgg('genres__name'), [])
+        ).filter(pk=OuterRef('pk'))
         return Subquery(genres.values('genres_'))
 
     def get_persons_subquery(
@@ -58,19 +50,15 @@ class MoviesApiMixin(View):
         Возвращает объект класса Subquery c колонкой genres_.
         Каждая запись в колонке содержит жанры для фильма из таблицы Filmwork.
         """
-        persons = (
-            self.model.objects.prefetch_related('persons')
-            .annotate(
-                roles=Coalesce(
-                    ArrayAgg(
-                        'persons__full_name',
-                        filter=Q(personfilmwork__role=role),
-                    ),
-                    [],
-                )
+        persons = self.model.objects.annotate(
+            roles=Coalesce(
+                ArrayAgg(
+                    'persons__full_name',
+                    filter=Q(personfilmwork__role=role),
+                ),
+                [],
             )
-            .filter(pk=OuterRef('pk'))
-        )
+        ).filter(pk=OuterRef('pk'))
 
         return Subquery(persons.values('roles'))
 
