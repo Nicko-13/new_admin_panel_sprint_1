@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    expose:
+      - "5432"
+    environment:
+      - 'POSTGRES_PASSWORD=$DB_PASSWORD'
+      - 'POSTGRES_USER=$DB_USER'
+      - 'POSTGRES_DB=&DB_NAME'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file: source/config/.env.dev
+  web:
+    build: ./source
+    command: bash -c "python manage.py migrate
+                      && python manage.py collectstatic --no-input
+                      && uwsgi --ini uwsgi.ini"
+    volumes:
+      - static_volume:/application/staticfiles
+    expose:
+      - "8000"
+    depends_on:
+      - postgres
+    env_file: source/config/.env.dev
+  nginx:
+    image: nginx:1.19.2
+    volumes:
+      - ./source/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./source/nginx_configs:/etc/nginx/conf.d:ro
+      - static_volume:/application/staticfiles
+    depends_on:
+      - web
+    ports:
+      - "8000:80"
+  swagger:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./openapi.yaml:/swagger.yaml
+    environment:
+      SWAGGER_JSON: "/swagger.yaml"
+  es:
+    image: elasticsearch:8.6.2
+    ports:
+      - "9200:9200"
+    environment:
+      - "discovery.type=single-node"
+      - "xpack.security.enabled=false"
+
+volumes:
+  postgres_data:
+  static_volume:
