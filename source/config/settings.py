@@ -51,6 +51,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = os.environ.get('DEBUG', False) == 'True'
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:8080',
 ]
